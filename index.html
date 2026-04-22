@@ -1069,8 +1069,6 @@ document.getElementById('clientSearch').addEventListener('input',()=>{clientPage
 document.getElementById('regionFilter').addEventListener('change',()=>{clientPage=1;renderClients();});
 
 // PRODUCTS
-let products=[],editingProductId=null,productPage=1,productPageSize=20;
-
 async function loadProducts(){
   try{
     const snap=await getDocs(query(collection(db,'products'),orderBy('sort','asc')));

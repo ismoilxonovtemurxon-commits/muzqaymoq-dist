@@ -1206,10 +1206,23 @@ function renderProducts(){
         <td>${p.boxSize?p.boxSize+' blok':'—'}</td>
         <td>${pricesHtml||'—'}</td>
         <td><span class="badge ${p.active===0?'badge-red':'badge-green'}">${p.active===0?'Nofaol':'Faol'}</span></td>
-        <td><div class="td-actions"><button class="btn btn-outline btn-sm" data-pedit="${p.id}">✏️</button></div></td>
+        <td><div class="td-actions"><button class="btn btn-outline btn-sm" data-pedit="${p.id}">✏️</button><button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none;cursor:pointer;border-radius:var(--radius);padding:6px 10px" data-pdel="${p.id}">🗑️</button></div></td>
       </tr>`;
     }).join('');
     tbody.querySelectorAll('[data-pedit]').forEach(btn=>btn.addEventListener('click',()=>openProductModal(btn.dataset.pedit)));
+    tbody.querySelectorAll('[data-pdel]').forEach(btn=>btn.addEventListener('click',async()=>{
+      if(!confirm('Bu tovarni o\'chirishni tasdiqlaysizmi?'))return;
+      const id=btn.dataset.pdel;
+      try{
+        await deleteDoc(doc(db,'products',id));
+        const idx=products.findIndex(p=>p.id===id);
+        if(idx>=0)products.splice(idx,1);
+        selectedProductIds.delete(id);
+        document.getElementById('ds-sku').textContent=products.length;
+        renderProducts();
+        toast('🗑️ Tovar o\'chirildi');
+      }catch(e){toast('❌ '+e.message,'error');}
+    }));
     tbody.querySelectorAll('.prod-chk').forEach(chk=>{
       chk.addEventListener('change',()=>{
         if(chk.checked)selectedProductIds.add(chk.dataset.pid);

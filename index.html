@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Muzqaymoq Distribution</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -870,14 +872,17 @@ onAuthStateChanged(auth,async(user)=>{
 });
 
 async function loadAll(){
+  // Hamma narsani parallel yuklaymiz
   await Promise.all([loadSettings(),loadClients(),loadUsers(),loadProducts()]);
   renderDashboard();renderTeam();
 }
 
 async function loadSettings(){
   const cols=['regions','priceTypes','clientCategories','clientTypes','brands','productCategories','paymentTypes','warehouses','returnReasons'];
-  for(const col of cols){
-    const snap=await getDocs(collection(db,col));
+  // Ketma-ket emas, barchasi bir vaqtda yuklanadi
+  const snaps=await Promise.all(cols.map(col=>getDocs(collection(db,col))));
+  snaps.forEach((snap,i)=>{
+    const col=cols[i];
     const arr=[];snap.forEach(d=>arr.push({id:d.id,...d.data()}));
     dataMap[col]=arr;
     if(col==='regions')regions=arr;
@@ -891,7 +896,7 @@ async function loadSettings(){
     else if(col==='returnReasons')returnReasons=arr;
     const el=document.getElementById('sc-'+col);
     if(el)el.textContent=arr.length+' ta';
-  }
+  });
   populateSelects();
   renderRegionFilter();
   renderCategoryFilter();

@@ -1345,45 +1345,69 @@ document.getElementById('productImportCancel')?.addEventListener('click',()=>{
 
 document.getElementById('productImportConfirm')?.addEventListener('click',async()=>{
   if(!importProductData.length)return;
-  let success=0,errors=0;
+  let success=0,errors=0,updated=0;
   for(const row of importProductData){
-    const name=String(row['Nomi']||'').trim();
+    // Sales Doctor format: Продукт, Категория, Бренд, Сортировка, Количество в блоке, ИД, Активность
+    // Our format: Nomi, Kategoriya, Brend, Sort, 1 Blok (dona), ID, Holat
+    const name=String(row['Продукт']||row['Nomi']||'').trim();
     if(!name){errors++;continue;}
-    // Find category and brand by name
-    const cat=productCategories.find(c=>c.name===(row['Kategoriya']||'').trim());
-    const brand=brands.find(b=>b.name===(row['Brend']||'').trim());
-    // Collect prices
+
+    const catName=String(row['Категория']||row['Kategoriya']||'').trim();
+    const brandName=String(row['Бренд']||row['Brend']||'').trim();
+    const sortVal=parseInt(row['Сортировка']||row['Sort'])||0;
+    const blockVal=parseInt(row['Количество в блоке']||row['1 Blok (dona)'])||0;
+    const boxVal=parseInt(row['1 Quti (blok)'])||0;
+    const activeStr=String(row['Активность']||row['Holat']||'Активный');
+    const isActive=activeStr==='Нофаол'||activeStr==='Nofaol'||activeStr==='Неактивный'?0:1;
+    const sdId=String(row['ИД']||row['ID']||'').trim(); // d0_282 kabi
+
+    const cat=productCategories.find(c=>c.name===catName);
+    const brand=brands.find(b=>b.name===brandName);
+
+    // Collect prices (our format only)
     const prices={};
     priceTypes.forEach(pt=>{
       const val=row[pt.name+' narxi'];
       if(val!==undefined&&val!=='')prices[pt.id]=parseFloat(val)||0;
     });
+
     const data={
       name,
       categoryId:cat?.id||'',
       brandId:brand?.id||'',
-      sort:parseInt(row['Sort'])||0,
+      sort:sortVal,
       unit:row['O\'lchov']||'dona',
-      blockSize:parseInt(row['1 Blok (dona)'])||0,
-      boxSize:parseInt(row['1 Quti (blok)'])||0,
-      active:row['Holat']==='Nofaol'?0:1,
-      note:String(row['Izoh']||''),
-      prices,updatedAt:Date.now()
+      blockSize:blockVal,
+      boxSize:boxVal,
+      active:isActive,
+      note:String(row['Изоҳ']||row['Izoh']||''),
+      prices,
+      updatedAt:Date.now()
     };
-    // If row has existing ID, update; else create
-    const existingId=row['ID']?products.find(p=>p.productId===String(row['ID']))?.id:null;
+
+    // Mavjud tovarni topish: Sales Doctor ID yoki bizning ID bo'yicha
+    const existing=products.find(p=>
+      (sdId&&p.productId===sdId)||
+      (sdId&&p.sdId===sdId)
+    );
+
     try{
-      if(existingId){
-        await updateDoc(doc(db,'products',existingId),data);
-        const idx=products.findIndex(p=>p.id===existingId);
+      if(existing){
+        // Sales Doctor ID saqlansin
+        if(sdId)data.sdId=sdId;
+        await updateDoc(doc(db,'products',existing.id),data);
+        const idx=products.findIndex(p=>p.id===existing.id);
         Object.assign(products[idx],data);
+        updated++;
       }else{
         const count=products.length+success+1;
-        data.productId='d0_'+count;data.createdAt=Date.now();
+        data.productId='d0_'+count;
+        if(sdId)data.sdId=sdId; // Sales Doctor ID ni ham saqlaymiz
+        data.createdAt=Date.now();
         const ref=await addDoc(collection(db,'products'),data);
         products.push({id:ref.id,...data});
+        success++;
       }
-      success++;
     }catch(e){errors++;}
   }
   products.sort((a,b)=>(a.sort||0)-(b.sort||0));
@@ -1392,7 +1416,9 @@ document.getElementById('productImportConfirm')?.addEventListener('click',async(
   document.getElementById('productImportPreview').style.display='none';
   document.getElementById('productImportFile').value='';
   renderProducts();populateProductFilters();
-  toast(`✅ ${success} ta yuklandi${errors?' | ❌ '+errors+' ta xato':''}`,errors?'error':'success');
+  let msg=`✅ ${success} ta yangi, ${updated} ta yangilandi`;
+  if(errors)msg+=` | ❌ ${errors} ta xato`;
+  toast(msg,errors?'error':'success');
 });
 
 // PRICE IMPORT
@@ -1452,8 +1478,8 @@ document.getElementById('priceImportConfirm')?.addEventListener('click',async()=
     const productId=String(row['ИД']||row['ID']||'').trim();
     if(!productId){notFound++;continue;}
 
-    // Find product by productId
-    const product=products.find(p=>p.productId===productId);
+    // Find product by productId or sdId (Sales Doctor ID)
+    const product=products.find(p=>p.productId===productId||p.sdId===productId);
     if(!product){notFound++;continue;}
 
     // Build prices object from columns like "OPTOM NARX/d0_3"

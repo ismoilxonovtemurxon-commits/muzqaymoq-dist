@@ -185,7 +185,13 @@ tr:hover td{background:#f8fafc;}
 .client-balance.positive{color:var(--green);}
 .client-balance.zero{color:var(--text2);}
 
-/* EMPTY */
+tr.selected-row td{background:#eff6ff !important;}
+.sort-th{user-select:none;white-space:nowrap;}
+.sort-th:hover{color:var(--primary);}
+.sort-th.asc .sort-arrow::after{content:'↑';}
+.sort-th.desc .sort-arrow::after{content:'↓';}
+.sort-arrow{font-size:10px;color:var(--text3);}
+
 .empty-state{text-align:center;padding:48px 20px;color:var(--text2);}
 .empty-icon{font-size:48px;margin-bottom:12px;}
 .empty-text{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text);}
@@ -512,9 +518,10 @@ tr:hover td{background:#f8fafc;}
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Sort</th>
-                    <th>Nomi</th>
+                    <th><input type="checkbox" id="productSelectAll" title="Hammasini tanlash"></th>
+                    <th style="cursor:pointer" data-sort="productId" class="sort-th">ID <span class="sort-arrow">↕</span></th>
+                    <th style="cursor:pointer" data-sort="sort" class="sort-th">Sort <span class="sort-arrow">↕</span></th>
+                    <th style="cursor:pointer" data-sort="name" class="sort-th">Nomi <span class="sort-arrow">↕</span></th>
                     <th>Kategoriya</th>
                     <th>Brend</th>
                     <th>O'lchov</th>
@@ -529,8 +536,23 @@ tr:hover td{background:#f8fafc;}
               </table>
             </div>
             <div class="pagination">
-              <div class="pagination-info" id="productPaginationInfo"></div>
-              <div class="pagination-btns" id="productPaginationBtns"></div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <div class="pagination-info" id="productPaginationInfo"></div>
+                <div id="productBulkActions" style="display:none;gap:8px;align-items:center">
+                  <span id="productSelectedCount" style="font-size:12px;color:var(--text2)"></span>
+                  <button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none;cursor:pointer" id="productDeleteSelected">🗑️ O'chirish</button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <select class="form-select" id="productPageSize" style="width:80px;padding:5px 8px;font-size:12px">
+                  <option value="10">10</option>
+                  <option value="20" selected>20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="99999">Hammasi</option>
+                </select>
+                <div class="pagination-btns" id="productPaginationBtns"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -803,6 +825,8 @@ let currentUser=null,currentRole='agent',currentUserName='';
 let clients=[],users=[],regions=[],priceTypes=[],clientCategories=[],clientTypes=[],brands=[],productCategories=[],paymentTypes=[],warehouses=[],returnReasons=[],products=[];
 let currentSettingType='',editingClientId=null,editingSettingId=null,viewingClientId=null,editingProductId=null,viewingProductId=null;
 let clientPage=1,clientPageSize=20,productPage=1,productPageSize=20;
+let productSortCol='sort',productSortDir='asc';
+let selectedProductIds=new Set();
 
 const dataMap={regions,priceTypes,clientCategories,clientTypes,brands,productCategories,paymentTypes,warehouses,returnReasons};
 
@@ -1135,17 +1159,32 @@ function renderProducts(){
   const q=(document.getElementById('productSearch')?.value||'').toLowerCase();
   const brand=document.getElementById('productBrandFilter')?.value||'';
   const cat=document.getElementById('productCatFilter')?.value||'';
-  let list=[...products].sort((a,b)=>(a.sort||0)-(b.sort||0));
+  productPageSize=parseInt(document.getElementById('productPageSize')?.value||'20');
+  let list=[...products];
   if(brand)list=list.filter(p=>p.brandId===brand);
   if(cat)list=list.filter(p=>p.categoryId===cat);
-  if(q)list=list.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.productId||'').includes(q));
+  if(q)list=list.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.productId||'').includes(q)||(p.sdId||'').includes(q));
+
+  // Saralash
+  list.sort((a,b)=>{
+    let va=a[productSortCol]||0, vb=b[productSortCol]||0;
+    if(productSortCol==='name'||productSortCol==='productId'){va=String(va).toLowerCase();vb=String(vb).toLowerCase();}
+    else{va=Number(va);vb=Number(vb);}
+    if(va<vb)return productSortDir==='asc'?-1:1;
+    if(va>vb)return productSortDir==='asc'?1:-1;
+    return 0;
+  });
+
   const total=list.length;
+  const maxPage=Math.ceil(total/productPageSize)||1;
+  if(productPage>maxPage)productPage=maxPage;
   const start=(productPage-1)*productPageSize;
-  const pageList=list.slice(start,start+productPageSize);
+  const pageList=productPageSize>=99999?list:list.slice(start,start+productPageSize);
+
   const tbody=document.getElementById('productTableBody');
   if(!tbody)return;
   if(!pageList.length){
-    tbody.innerHTML='<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">🍦</div><div class="empty-text">Tovar topilmadi</div></div></td></tr>';
+    tbody.innerHTML='<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">🍦</div><div class="empty-text">Tovar topilmadi</div></div></td></tr>';
   }else{
     tbody.innerHTML=pageList.map(p=>{
       const pcat=productCategories.find(c=>c.id===p.categoryId);
@@ -1154,14 +1193,16 @@ function renderProducts(){
         const pt=priceTypes.find(x=>x.id===ptId);
         return pt?`<div style="font-size:11px"><span style="color:var(--text2)">${pt.name}:</span> <strong>${fmtNum(price)}</strong></div>`:'';
       }).join('');
-      return`<tr>
-        <td><span class="badge badge-gray">${p.productId||'—'}</span></td>
+      const checked=selectedProductIds.has(p.id)?'checked':'';
+      return`<tr class="${selectedProductIds.has(p.id)?'selected-row':''}">
+        <td><input type="checkbox" class="prod-chk" data-pid="${p.id}" ${checked}></td>
+        <td><span class="badge badge-gray">${p.productId||'—'}</span>${p.sdId&&p.sdId!==p.productId?`<div style="font-size:10px;color:var(--text3)">${p.sdId}</div>`:''}</td>
         <td style="font-weight:700;color:var(--primary);text-align:center">${p.sort||0}</td>
         <td><strong>${p.name||'—'}</strong>${p.note?`<div style="font-size:11px;color:var(--text3)">${p.note}</div>`:''}</td>
         <td>${pcat?`<span class="badge badge-blue">${pcat.name}</span>`:'—'}</td>
         <td>${pbrand?`<span class="badge badge-orange">${pbrand.name}</span>`:'—'}</td>
         <td>${p.unit||'dona'}</td>
-        <td>${p.blockSize||'—'} dona</td>
+        <td>${p.blockSize||'—'}</td>
         <td>${p.boxSize?p.boxSize+' blok':'—'}</td>
         <td>${pricesHtml||'—'}</td>
         <td><span class="badge ${p.active===0?'badge-red':'badge-green'}">${p.active===0?'Nofaol':'Faol'}</span></td>
@@ -1169,19 +1210,103 @@ function renderProducts(){
       </tr>`;
     }).join('');
     tbody.querySelectorAll('[data-pedit]').forEach(btn=>btn.addEventListener('click',()=>openProductModal(btn.dataset.pedit)));
+    tbody.querySelectorAll('.prod-chk').forEach(chk=>{
+      chk.addEventListener('change',()=>{
+        if(chk.checked)selectedProductIds.add(chk.dataset.pid);
+        else selectedProductIds.delete(chk.dataset.pid);
+        updateProductBulkUI();
+      });
+    });
   }
+
+  // Pagination info
   const el1=document.getElementById('productPaginationInfo');
-  if(el1)el1.textContent=`${start+1}–${Math.min(start+productPageSize,total)} / ${total} ta`;
+  if(el1)el1.textContent=productPageSize>=99999?`Jami ${total} ta`:`${start+1}–${Math.min(start+productPageSize,total)} / ${total} ta`;
+
   const totalPages=Math.ceil(total/productPageSize);
   const pBtns=document.getElementById('productPaginationBtns');
   if(pBtns){
+    if(productPageSize>=99999){pBtns.innerHTML='';return;}
     pBtns.innerHTML='';
-    for(let i=1;i<=Math.min(totalPages,10);i++){
-      pBtns.innerHTML+=`<button class="page-btn ${i===productPage?'active':''}" data-pp="${i}">${i}</button>`;
+    const pages=[];
+    if(totalPages<=7){for(let i=1;i<=totalPages;i++)pages.push(i);}
+    else{
+      pages.push(1);
+      if(productPage>3)pages.push('...');
+      for(let i=Math.max(2,productPage-1);i<=Math.min(totalPages-1,productPage+1);i++)pages.push(i);
+      if(productPage<totalPages-2)pages.push('...');
+      pages.push(totalPages);
     }
+    pages.forEach(p=>{
+      if(p==='...')pBtns.innerHTML+=`<span style="padding:5px 4px;color:var(--text3)">…</span>`;
+      else pBtns.innerHTML+=`<button class="page-btn ${p===productPage?'active':''}" data-pp="${p}">${p}</button>`;
+    });
     pBtns.querySelectorAll('[data-pp]').forEach(btn=>btn.addEventListener('click',()=>{productPage=parseInt(btn.dataset.pp);renderProducts();}));
   }
+
+  // Sort headers
+  document.querySelectorAll('.sort-th').forEach(th=>{
+    th.classList.remove('asc','desc');
+    if(th.dataset.sort===productSortCol)th.classList.add(productSortDir);
+  });
+
+  // Select all checkbox
+  const allChk=document.getElementById('productSelectAll');
+  if(allChk){
+    allChk.onchange=()=>{
+      pageList.forEach(p=>{
+        if(allChk.checked)selectedProductIds.add(p.id);
+        else selectedProductIds.delete(p.id);
+      });
+      renderProducts();
+    };
+    allChk.checked=pageList.length>0&&pageList.every(p=>selectedProductIds.has(p.id));
+  }
+  updateProductBulkUI();
 }
+
+function updateProductBulkUI(){
+  const n=selectedProductIds.size;
+  const bulk=document.getElementById('productBulkActions');
+  if(bulk){
+    bulk.style.display=n>0?'flex':'none';
+    const cnt=document.getElementById('productSelectedCount');
+    if(cnt)cnt.textContent=n+' ta tanlandi';
+  }
+}
+
+// Sort headers click
+document.addEventListener('click',e=>{
+  const th=e.target.closest('.sort-th');
+  if(!th)return;
+  const col=th.dataset.sort;
+  if(!col)return;
+  if(productSortCol===col)productSortDir=productSortDir==='asc'?'desc':'asc';
+  else{productSortCol=col;productSortDir='asc';}
+  productPage=1;renderProducts();
+});
+
+// Page size change
+document.getElementById('productPageSize')?.addEventListener('change',()=>{productPage=1;renderProducts();});
+
+// Bulk delete
+document.getElementById('productDeleteSelected')?.addEventListener('click',async()=>{
+  if(!selectedProductIds.size)return;
+  if(!confirm(`${selectedProductIds.size} ta tovarni o'chirishni tasdiqlaysizmi?`))return;
+  let deleted=0;
+  for(const id of selectedProductIds){
+    try{
+      await deleteDoc(doc(db,'products',id));
+      const idx=products.findIndex(p=>p.id===id);
+      if(idx>=0)products.splice(idx,1);
+      deleted++;
+    }catch(e){}
+  }
+  selectedProductIds.clear();
+  document.getElementById('ds-sku').textContent=products.length;
+  renderProducts();
+  toast(`🗑️ ${deleted} ta tovar o'chirildi`);
+});
 
 function renderPriceInputs(existingPrices={}){
   const el=document.getElementById('p-prices');
@@ -1324,15 +1449,36 @@ function processProductExcel(file){
     const wb=XLSX.read(e.target.result,{type:'binary'});
     const ws=wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(ws);
-    importProductData=rows.filter(r=>r['Nomi']);
-    if(!importProductData.length)return toast('❌ Fayl bo\'sh yoki noto\'g\'ri format','error');
-    // Show preview
-    document.getElementById('productImportInfo').textContent=`${importProductData.length} ta tovar topildi — ko'rib chiqing`;
-    const cols=Object.keys(importProductData[0]);
-    document.getElementById('productImportHead').innerHTML=`<tr>${cols.map(c=>`<th style="padding:6px 10px;background:#f8fafc;border:1px solid var(--border);font-size:11px;font-weight:600;white-space:nowrap">${c}</th>`).join('')}</tr>`;
-    document.getElementById('productImportBody').innerHTML=importProductData.slice(0,5).map(row=>`<tr>${cols.map(c=>`<td style="padding:5px 10px;border:1px solid var(--border);white-space:nowrap">${row[c]??''}</td>`).join('')}</tr>`).join('');
+    // Faqat nomi bor qatorlar
+    let allRows=rows.filter(r=>r['Продукт']||r['Nomi']);
+    // Mavjud tovarlarni filtrlash — faqat YO'Q tovarlar
+    const newRows=allRows.filter(r=>{
+      const sdId=String(r['ИД']||r['ID']||'').trim();
+      const name=String(r['Продукт']||r['Nomi']||'').trim().toLowerCase();
+      const alreadyExists=products.some(p=>
+        (sdId&&(p.sdId===sdId||p.productId===sdId))||
+        (p.name||'').toLowerCase()===name
+      );
+      return !alreadyExists;
+    });
+    importProductData=newRows;
+    const skipped=allRows.length-newRows.length;
+    if(!newRows.length){
+      toast(`⚠️ Barcha ${allRows.length} ta tovar allaqachon mavjud — yangi tovar yo'q`,'error');
+      document.getElementById('productImportFile').value='';
+      return;
+    }
+    document.getElementById('productImportInfo').textContent=
+      `${newRows.length} ta yangi tovar topildi${skipped?` (${skipped} ta mavjud — o'tkazib yuborildi)`:''}`;
+    const cols=Object.keys(newRows[0]);
+    document.getElementById('productImportHead').innerHTML=
+      `<tr>${cols.map(c=>`<th style="padding:6px 10px;background:#f8fafc;border:1px solid var(--border);font-size:11px;font-weight:600;white-space:nowrap">${c}</th>`).join('')}</tr>`;
+    document.getElementById('productImportBody').innerHTML=
+      newRows.slice(0,5).map(row=>
+        `<tr>${cols.map(c=>`<td style="padding:5px 10px;border:1px solid var(--border);white-space:nowrap">${row[c]??''}</td>`).join('')}</tr>`
+      ).join('');
     document.getElementById('productImportPreview').style.display='block';
-    toast(`✅ ${importProductData.length} ta tovar topildi`);
+    toast(`✅ ${newRows.length} ta yangi tovar topildi${skipped?' | '+skipped+' ta mavjud':''}`);
   };
   reader.readAsBinaryString(file);
 }
@@ -1392,22 +1538,14 @@ document.getElementById('productImportConfirm')?.addEventListener('click',async(
     );
 
     try{
-      if(existing){
-        // Sales Doctor ID saqlansin
-        if(sdId)data.sdId=sdId;
-        await updateDoc(doc(db,'products',existing.id),data);
-        const idx=products.findIndex(p=>p.id===existing.id);
-        Object.assign(products[idx],data);
-        updated++;
-      }else{
-        const count=products.length+success+1;
-        data.productId='d0_'+count;
-        if(sdId)data.sdId=sdId; // Sales Doctor ID ni ham saqlaymiz
-        data.createdAt=Date.now();
-        const ref=await addDoc(collection(db,'products'),data);
-        products.push({id:ref.id,...data});
-        success++;
-      }
+      // Faqat yangi tovar qo'shamiz — mavjudini yangilamaymiz
+      const count=products.length+success+1;
+      data.productId='d0_'+count;
+      if(sdId)data.sdId=sdId;
+      data.createdAt=Date.now();
+      const ref=await addDoc(collection(db,'products'),data);
+      products.push({id:ref.id,...data});
+      success++;
     }catch(e){errors++;}
   }
   products.sort((a,b)=>(a.sort||0)-(b.sort||0));
@@ -1416,7 +1554,7 @@ document.getElementById('productImportConfirm')?.addEventListener('click',async(
   document.getElementById('productImportPreview').style.display='none';
   document.getElementById('productImportFile').value='';
   renderProducts();populateProductFilters();
-  let msg=`✅ ${success} ta yangi, ${updated} ta yangilandi`;
+  let msg=`✅ ${success} ta yangi tovar qo'shildi`;
   if(errors)msg+=` | ❌ ${errors} ta xato`;
   toast(msg,errors?'error':'success');
 });

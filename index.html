@@ -546,8 +546,9 @@ tr.selected-row td{background:#eff6ff !important;}
             <div class="pagination">
               <div style="display:flex;align-items:center;gap:12px">
                 <div class="pagination-info" id="productPaginationInfo"></div>
-                <div id="productBulkActions" style="display:none;gap:8px;align-items:center">
-                  <span id="productSelectedCount" style="font-size:12px;color:var(--text2)"></span>
+                <div id="productBulkActions" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
+                  <span id="productSelectedCount" style="font-size:12px;color:var(--text2);font-weight:600"></span>
+                  <button class="btn btn-sm" style="background:var(--blue-light);color:var(--blue);border:none;cursor:pointer;border-radius:var(--radius);padding:6px 12px;font-weight:600" id="productBulkEditBtn">✏️ Tahrirlash</button>
                   <button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none;cursor:pointer" id="productDeleteSelected">🗑️ O'chirish</button>
                 </div>
               </div>
@@ -792,6 +793,61 @@ tr.selected-row td{background:#eff6ff !important;}
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('settingItemModal')">Bekor</button>
       <button class="btn btn-primary" id="saveSettingItemBtn">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK EDIT MODAL -->
+<div class="modal-overlay" id="bulkEditModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="bulkEditTitle">Guruhli tahrirlash</div>
+      <button class="modal-close" onclick="closeModal('bulkEditModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#1d4ed8">
+        <strong id="bulkEditCount"></strong> ta tovar tanlab olindi. Quyidagi maydonlardan faqat <strong>o'zgartirmoqchi bo'lganlaringizni</strong> to'ldiring — bo'sh qoldirilganlar o'zgarmaydi.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kategoriya</label>
+        <select class="form-select" id="be-category">
+          <option value="">— O'zgartirmaslik —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Brend</label>
+        <select class="form-select" id="be-brand">
+          <option value="">— O'zgartirmaslik —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Holat</label>
+        <select class="form-select" id="be-active">
+          <option value="">— O'zgartirmaslik —</option>
+          <option value="1">✅ Faol</option>
+          <option value="0">❌ Nofaol</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">O'lchov birligi</label>
+        <select class="form-select" id="be-unit">
+          <option value="">— O'zgartirmaslik —</option>
+          <option value="dona">Dona</option>
+          <option value="kg">Kilogram</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">1 Blok = ? dona</label>
+        <input class="form-input" type="number" id="be-blockSize" placeholder="Bo'sh qoldirsangiz o'zgarmaydi">
+      </div>
+      <div class="form-group">
+        <label class="form-label">1 Quti = ? blok</label>
+        <input class="form-input" type="number" id="be-boxSize" placeholder="Bo'sh qoldirsangiz o'zgarmaydi">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('bulkEditModal')">Bekor</button>
+      <button class="btn btn-primary" id="saveBulkEditBtn">✅ Saqlash</button>
     </div>
   </div>
 </div>
@@ -1836,7 +1892,74 @@ document.getElementById('productDeleteSelected')?.addEventListener('click',async
   toast(`🗑️ ${deleted} ta tovar o'chirildi`);
 });
 
-function renderPriceInputs(existingPrices={}){
+// Bulk Edit
+document.getElementById('productBulkEditBtn')?.addEventListener('click',()=>{
+  if(!selectedProductIds.size)return;
+  // Populate selects
+  const cs=document.getElementById('be-category');
+  cs.innerHTML='<option value="">— O&#39;zgartirmaslik —</option>';
+  productCategories.forEach(c=>cs.innerHTML+=`<option value="${c.id}">${c.name}</option>`);
+  const bs=document.getElementById('be-brand');
+  bs.innerHTML='<option value="">— O&#39;zgartirmaslik —</option>';
+  brands.forEach(b=>bs.innerHTML+=`<option value="${b.id}">${b.name}</option>`);
+  // Reset fields
+  document.getElementById('be-active').value='';
+  document.getElementById('be-unit').value='';
+  document.getElementById('be-blockSize').value='';
+  document.getElementById('be-boxSize').value='';
+  document.getElementById('bulkEditCount').textContent=selectedProductIds.size;
+  document.getElementById('bulkEditModal').classList.add('open');
+});
+
+document.getElementById('saveBulkEditBtn')?.addEventListener('click',async()=>{
+  const catVal=document.getElementById('be-category').value;
+  const brandVal=document.getElementById('be-brand').value;
+  const activeVal=document.getElementById('be-active').value;
+  const unitVal=document.getElementById('be-unit').value;
+  const blockVal=document.getElementById('be-blockSize').value;
+  const boxVal=document.getElementById('be-boxSize').value;
+
+  // Check at least one field is selected
+  if(!catVal&&!brandVal&&activeVal===''&&!unitVal&&!blockVal&&!boxVal){
+    return toast('Hech bo&#39;lmaganda bitta maydonni to&#39;ldiring','error');
+  }
+
+  const updates={updatedAt:Date.now()};
+  if(catVal)updates.categoryId=catVal;
+  if(brandVal)updates.brandId=brandVal;
+  if(activeVal!=='')updates.active=parseInt(activeVal);
+  if(unitVal)updates.unit=unitVal;
+  if(blockVal)updates.blockSize=parseInt(blockVal);
+  if(boxVal)updates.boxSize=parseInt(boxVal);
+
+  let success=0,errors=0;
+  const ids=[...selectedProductIds];
+
+  // Show progress
+  document.getElementById('saveBulkEditBtn').textContent='⏳ Saqlanmoqda...';
+  document.getElementById('saveBulkEditBtn').disabled=true;
+
+  for(const id of ids){
+    try{
+      await updateDoc(doc(db,'products',id),updates);
+      const idx=products.findIndex(p=>p.id===id);
+      if(idx>=0)Object.assign(products[idx],updates);
+      success++;
+    }catch(e){errors++;}
+  }
+
+  document.getElementById('saveBulkEditBtn').textContent='✅ Saqlash';
+  document.getElementById('saveBulkEditBtn').disabled=false;
+
+  selectedProductIds.clear();
+  closeModal('bulkEditModal');
+  renderProducts();
+  let msg=`✅ ${success} ta tovar yangilandi`;
+  if(errors)msg+=` | ❌ ${errors} ta xato`;
+  toast(msg,errors?'error':'success');
+});
+
+function renderPriceInputs(existingPrices={}) {
   const el=document.getElementById('p-prices');
   if(!el)return;
   if(!priceTypes.length){el.innerHTML='<div style="color:var(--text3);font-size:12px">Avval narx turlarini sozlamalarda qo\'shing</div>';return;}

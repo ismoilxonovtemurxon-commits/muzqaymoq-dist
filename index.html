@@ -423,11 +423,13 @@ tr.selected-row td{background:#eff6ff !important;}
             <div class="table-header">
               <div class="table-title">Buyurtmalar</div>
               <div class="table-actions">
-                <div class="search-wrap"><input class="search-input" id="orderSearch" placeholder="Qidirish..."></div>
+                <div class="search-wrap"><input class="search-input" id="orderSearch" placeholder="Mijoz yoki № qidirish..."></div>
+                <select class="form-select" id="orderAgentFilter" style="width:150px;padding:7px 10px"><option value="">Barcha vakillar</option></select>
+                <select class="form-select" id="orderWarehouseFilter" style="width:140px;padding:7px 10px"><option value="">Barcha omborlar</option></select>
                 <button class="btn btn-primary btn-sm" id="addOrderBtn">+ Buyurtma</button>
               </div>
             </div>
-            <div class="filter-bar">
+            <div class="filter-bar" id="orderStatusFilter">
               <div class="filter-chip active" data-status="">Hammasi</div>
               <div class="filter-chip" data-status="new">🆕 Yangi</div>
               <div class="filter-chip" data-status="packed">📋 Terilgan</div>
@@ -451,9 +453,13 @@ tr.selected-row td{background:#eff6ff !important;}
                   </tr>
                 </thead>
                 <tbody id="orderTableBody">
-                  <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-text">Buyurtmalar yo'q</div><div class="empty-sub">Tez kunda qo'shiladi</div></div></td></tr>
+                  <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-text">Buyurtmalar yo'q</div></div></td></tr>
                 </tbody>
               </table>
+            </div>
+            <div class="pagination">
+              <div class="pagination-info" id="orderPaginationInfo"></div>
+              <div class="pagination-btns" id="orderPaginationBtns"></div>
             </div>
           </div>
         </div>
@@ -790,6 +796,75 @@ tr.selected-row td{background:#eff6ff !important;}
   </div>
 </div>
 
+<!-- ORDER MODAL -->
+<div class="modal-overlay" id="orderModal">
+  <div class="modal modal-lg" style="max-width:860px">
+    <div class="modal-header">
+      <div class="modal-title" id="orderModalTitle">Yangi buyurtma</div>
+      <button class="modal-close" onclick="closeModal('orderModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Mijoz *</label>
+          <select class="form-select" id="o-client" style="width:100%"><option value="">— Mijozni tanlang —</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ombor *</label>
+          <select class="form-select" id="o-warehouse"><option value="">— Tanlang —</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">To'lov turi</label>
+          <select class="form-select" id="o-paymentType"><option value="">— Tanlang —</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Yetkazish sanasi</label>
+          <input class="form-input" type="date" id="o-date">
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">Izoh</label>
+          <input class="form-input" id="o-note" placeholder="Qo'shimcha ma'lumot">
+        </div>
+      </div>
+      <div id="o-clientInfo" style="display:none;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0369a1"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">TOVARLAR QO'SHISH</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <div class="search-wrap" style="flex:1"><input class="search-input" id="o-productSearch" placeholder="Tovar qidirish..." style="width:100%"></div>
+          <select class="form-select" id="o-productCatFilter" style="width:160px;padding:7px 10px"><option value="">Barcha kategoriyalar</option></select>
+        </div>
+        <div id="o-productList" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:#fafafa"></div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">BUYURTMA TARKIBI</div>
+        <div id="o-orderItems"><div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Hali tovar qo&#39;shilmagan</div></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:2px solid var(--border)">
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Jami summa</div>
+            <div style="font-size:22px;font-weight:700;color:var(--primary)" id="o-totalSum">0 so'm</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('orderModal')">Bekor</button>
+      <button class="btn btn-primary" id="saveOrderBtn">💾 Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER DETAIL MODAL -->
+<div class="modal-overlay" id="orderDetailModal">
+  <div class="modal modal-lg" style="max-width:700px">
+    <div class="modal-header">
+      <div class="modal-title" id="orderDetailTitle">Buyurtma</div>
+      <button class="modal-close" onclick="closeModal('orderDetailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="orderDetailBody"></div>
+    <div class="modal-footer" id="orderDetailFooter"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -873,7 +948,7 @@ onAuthStateChanged(auth,async(user)=>{
 
 async function loadAll(){
   // Hamma narsani parallel yuklaymiz
-  await Promise.all([loadSettings(),loadClients(),loadUsers(),loadProducts()]);
+  await Promise.all([loadSettings(),loadClients(),loadUsers(),loadProducts(),loadOrders()]);
   renderDashboard();renderTeam();
 }
 
@@ -1137,7 +1212,442 @@ document.getElementById('saveClientBtn').addEventListener('click',async()=>{
 
 document.getElementById('addClientBtn').addEventListener('click',()=>openClientModal());
 document.getElementById('editClientFromDetailBtn').addEventListener('click',()=>{if(viewingClientId)openClientModal(viewingClientId);});
-document.getElementById('newOrderFromDetailBtn').addEventListener('click',()=>toast('Buyurtma moduli tez kunda!'));
+document.getElementById('newOrderFromDetailBtn').addEventListener('click',()=>{
+  if(viewingClientId)openOrderModal(null,viewingClientId);
+  closeModal('clientDetailModal');
+});
+
+// ==================== ORDERS ====================
+let orders=[];
+let orderPage=1,orderPageSize=20;
+let editingOrderId=null;
+let orderItems=[]; // [{productId, name, qty, price, blockSize, unit}]
+let orderClientPriceTypeId='';
+
+async function loadOrders(){
+  try{
+    let snap;
+    if(currentRole==='admin'){
+      snap=await getDocs(query(collection(db,'orders'),orderBy('createdAt','desc')));
+    }else{
+      snap=await getDocs(query(collection(db,'orders'),where('agentId','==',currentUser.uid),orderBy('createdAt','desc')));
+    }
+    orders=[];snap.forEach(d=>orders.push({id:d.id,...d.data()}));
+    const today=new Date().toDateString();
+    const todayCount=orders.filter(o=>new Date(o.createdAt).toDateString()===today).length;
+    document.getElementById('ds-orders').textContent=todayCount;
+    renderOrders();
+    populateOrderFilters();
+  }catch(e){console.error(e);}
+}
+
+function populateOrderFilters(){
+  const af=document.getElementById('orderAgentFilter');
+  if(af){
+    af.innerHTML='<option value="">Barcha vakillar</option>';
+    users.forEach(u=>af.innerHTML+=`<option value="${u.id}">${u.name||u.email}</option>`);
+  }
+  const wf=document.getElementById('orderWarehouseFilter');
+  if(wf){
+    wf.innerHTML='<option value="">Barcha omborlar</option>';
+    warehouses.forEach(w=>wf.innerHTML+=`<option value="${w.id}">${w.name}</option>`);
+  }
+}
+
+const orderStatusMap={
+  new:{label:'🆕 Yangi',cls:'badge-blue'},
+  packed:{label:'📋 Terilgan',cls:'badge-yellow'},
+  loaded:{label:'🚚 Yuklangan',cls:'badge-orange'},
+  delivered:{label:'✅ Yetkazilgan',cls:'badge-green'},
+  cancelled:{label:'❌ Bekor',cls:'badge-red'},
+  return:{label:'🔄 Vozvrat',cls:'badge-gray'}
+};
+
+function renderOrders(){
+  const q=(document.getElementById('orderSearch')?.value||'').toLowerCase();
+  const status=document.querySelector('#orderStatusFilter .filter-chip.active')?.dataset.status||'';
+  const agentId=document.getElementById('orderAgentFilter')?.value||'';
+  const warehouseId=document.getElementById('orderWarehouseFilter')?.value||'';
+
+  let list=[...orders];
+  if(status)list=list.filter(o=>o.status===status);
+  if(agentId)list=list.filter(o=>o.agentId===agentId);
+  if(warehouseId)list=list.filter(o=>o.warehouseId===warehouseId);
+  if(q)list=list.filter(o=>{
+    const client=clients.find(c=>c.id===o.clientId);
+    return (client?.name||'').toLowerCase().includes(q)||
+           (o.orderNum||'').toLowerCase().includes(q)||
+           (client?.clientId||'').toLowerCase().includes(q);
+  });
+
+  const total=list.length;
+  const start=(orderPage-1)*orderPageSize;
+  const pageList=list.slice(start,start+orderPageSize);
+  const tbody=document.getElementById('orderTableBody');
+  if(!tbody)return;
+
+  if(!pageList.length){
+    tbody.innerHTML='<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-text">Buyurtma topilmadi</div></div></td></tr>';
+  }else{
+    tbody.innerHTML=pageList.map(o=>{
+      const client=clients.find(c=>c.id===o.clientId);
+      const agent=users.find(u=>u.id===o.agentId);
+      const warehouse=warehouses.find(w=>w.id===o.warehouseId);
+      const st=orderStatusMap[o.status]||{label:o.status,cls:'badge-gray'};
+      return`<tr>
+        <td><span class="badge badge-gray">${o.orderNum||'—'}</span></td>
+        <td>${fmtDate(o.createdAt)}</td>
+        <td><strong>${client?.name||'—'}</strong><div style="font-size:11px;color:var(--text3)">${client?.clientId||''}</div></td>
+        <td>${agent?.name||'—'}</td>
+        <td><strong style="color:var(--primary)">${fmtNum(o.totalSum||0)}</strong> so'm</td>
+        <td><span class="badge ${st.cls}">${st.label}</span></td>
+        <td>${warehouse?.name||'—'}</td>
+        <td><div class="td-actions">
+          <button class="btn btn-outline btn-sm" data-oview="${o.id}">👁️</button>
+          ${(o.status==='new'&&(currentRole==='admin'||o.agentId===currentUser.uid))?`<button class="btn btn-outline btn-sm" data-oedit="${o.id}">✏️</button>`:''}
+        </div></td>
+      </tr>`;
+    }).join('');
+    tbody.querySelectorAll('[data-oview]').forEach(btn=>btn.addEventListener('click',()=>openOrderDetail(btn.dataset.oview)));
+    tbody.querySelectorAll('[data-oedit]').forEach(btn=>btn.addEventListener('click',()=>openOrderModal(btn.dataset.oedit)));
+  }
+
+  const pi=document.getElementById('orderPaginationInfo');
+  if(pi)pi.textContent=`${start+1}–${Math.min(start+orderPageSize,total)} / ${total} ta`;
+  const totalPages=Math.ceil(total/orderPageSize)||1;
+  const pBtns=document.getElementById('orderPaginationBtns');
+  if(pBtns){
+    pBtns.innerHTML='';
+    for(let i=1;i<=Math.min(totalPages,10);i++){
+      pBtns.innerHTML+=`<button class="page-btn ${i===orderPage?'active':''}" data-op="${i}">${i}</button>`;
+    }
+    pBtns.querySelectorAll('[data-op]').forEach(btn=>btn.addEventListener('click',()=>{orderPage=parseInt(btn.dataset.op);renderOrders();}));
+  }
+}
+
+// Order status filter chips
+document.getElementById('orderStatusFilter')?.querySelectorAll('.filter-chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    document.querySelectorAll('#orderStatusFilter .filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');orderPage=1;renderOrders();
+  });
+});
+document.getElementById('orderSearch')?.addEventListener('input',()=>{orderPage=1;renderOrders();});
+document.getElementById('orderAgentFilter')?.addEventListener('change',()=>{orderPage=1;renderOrders();});
+document.getElementById('orderWarehouseFilter')?.addEventListener('change',()=>{orderPage=1;renderOrders();});
+
+function openOrderModal(orderId=null, preClientId=null){
+  editingOrderId=orderId;
+  orderItems=[];
+  document.getElementById('orderModalTitle').textContent=orderId?'Buyurtmani tahrirlash':'Yangi buyurtma';
+
+  // Populate selects
+  const cs=document.getElementById('o-client');
+  cs.innerHTML='<option value="">— Mijozni tanlang —</option>';
+  clients.forEach(c=>cs.innerHTML+=`<option value="${c.id}">${c.name} (${c.clientId||'—'})</option>`);
+
+  const ws=document.getElementById('o-warehouse');
+  ws.innerHTML='<option value="">— Tanlang —</option>';
+  warehouses.forEach(w=>ws.innerHTML+=`<option value="${w.id}">${w.name}</option>`);
+
+  const ps=document.getElementById('o-paymentType');
+  ps.innerHTML='<option value="">— Tanlang —</option>';
+  paymentTypes.forEach(p=>ps.innerHTML+=`<option value="${p.id}">${p.name}</option>`);
+
+  const pcf=document.getElementById('o-productCatFilter');
+  if(pcf){
+    pcf.innerHTML='<option value="">Barcha kategoriyalar</option>';
+    productCategories.forEach(c=>pcf.innerHTML+=`<option value="${c.id}">${c.name}</option>`);
+  }
+
+  if(orderId){
+    const o=orders.find(x=>x.id===orderId);if(!o)return;
+    cs.value=o.clientId||'';
+    document.getElementById('o-warehouse').value=o.warehouseId||'';
+    document.getElementById('o-paymentType').value=o.paymentTypeId||'';
+    document.getElementById('o-note').value=o.note||'';
+    document.getElementById('o-date').value=o.deliveryDate||'';
+    orderItems=(o.items||[]).map(i=>({...i}));
+    onClientChange(o.clientId);
+  }else{
+    cs.value=preClientId||'';
+    document.getElementById('o-warehouse').value='';
+    document.getElementById('o-paymentType').value='';
+    document.getElementById('o-note').value='';
+    document.getElementById('o-date').value='';
+    if(preClientId)onClientChange(preClientId);
+    // Default warehouse for non-admin
+    if(currentRole!=='admin'){
+      const myClient=clients.find(c=>c.id===preClientId);
+      if(myClient?.warehouseId)document.getElementById('o-warehouse').value=myClient.warehouseId;
+    }
+  }
+
+  renderOrderProductList();
+  renderOrderItems();
+  document.getElementById('orderModal').classList.add('open');
+}
+
+function onClientChange(clientId){
+  const client=clients.find(c=>c.id===clientId);
+  orderClientPriceTypeId=client?.priceTypeId||'';
+  const infoEl=document.getElementById('o-clientInfo');
+  if(client){
+    const pt=priceTypes.find(p=>p.id===orderClientPriceTypeId);
+    const agent=users.find(u=>u.id===client.agentId);
+    infoEl.style.display='block';
+    infoEl.innerHTML=`<strong>${client.name}</strong> &nbsp;|&nbsp; Narx turi: <strong>${pt?.name||'—'}</strong> &nbsp;|&nbsp; Vakil: ${agent?.name||'—'} &nbsp;|&nbsp; Balans: <strong>${fmtNum(client.balance||0)} so'm</strong>`;
+    // Auto-fill warehouse from client
+    if(client.warehouseId&&!document.getElementById('o-warehouse').value){
+      document.getElementById('o-warehouse').value=client.warehouseId;
+    }
+    // Update product prices shown
+    renderOrderProductList();
+    renderOrderItems();
+  }else{
+    infoEl.style.display='none';
+    orderClientPriceTypeId='';
+  }
+}
+
+document.getElementById('o-client')?.addEventListener('change',function(){onClientChange(this.value);});
+
+function getProductPrice(product){
+  if(!product.prices)return 0;
+  if(orderClientPriceTypeId&&product.prices[orderClientPriceTypeId])return product.prices[orderClientPriceTypeId];
+  // Fallback: first available price
+  const keys=Object.keys(product.prices);
+  return keys.length?product.prices[keys[0]]:0;
+}
+
+function renderOrderProductList(){
+  const q=(document.getElementById('o-productSearch')?.value||'').toLowerCase();
+  const cat=document.getElementById('o-productCatFilter')?.value||'';
+  let list=products.filter(p=>p.active!==0);
+  if(cat)list=list.filter(p=>p.categoryId===cat);
+  if(q)list=list.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.productId||'').includes(q));
+
+  const el=document.getElementById('o-productList');
+  if(!el)return;
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">Tovar topilmadi</div>';
+    return;
+  }
+  el.innerHTML=list.map(p=>{
+    const cat=productCategories.find(c=>c.id===p.categoryId);
+    const price=getProductPrice(p);
+    const inOrder=orderItems.find(i=>i.productId===p.id);
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:${inOrder?'#eff6ff':'white'}" data-padd="${p.id}">
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600">${p.name}</div>
+        <div style="font-size:11px;color:var(--text3)">${cat?.name||''} &nbsp;·&nbsp; Sort:${p.sort||0} &nbsp;·&nbsp; Blok:${p.blockSize||'—'}</div>
+      </div>
+      <div style="text-align:right;margin-left:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--primary)">${fmtNum(price)} so'm</div>
+        ${inOrder?'<div style="font-size:10px;color:var(--green);font-weight:600">✓ Qo&#39;shilgan</div>':''}
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-padd]').forEach(row=>row.addEventListener('click',()=>{
+    const p=products.find(x=>x.id===row.dataset.padd);
+    if(!p)return;
+    const existing=orderItems.find(i=>i.productId===p.id);
+    if(existing){existing.qty++;renderOrderItems();renderOrderProductList();return;}
+    const price=getProductPrice(p);
+    orderItems.push({productId:p.id,name:p.name,qty:1,price,blockSize:p.blockSize||0,unit:p.unit||'dona',productIdCode:p.productId||''});
+    renderOrderItems();
+    renderOrderProductList();
+  }));
+}
+
+function renderOrderItems(){
+  const el=document.getElementById('o-orderItems');
+  if(!el)return;
+  if(!orderItems.length){
+    el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Hali tovar qo&#39;shilmagan</div>';
+    document.getElementById('o-totalSum').textContent='0 so\'m';
+    return;
+  }
+  let total=0;
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:left;font-weight:600;color:var(--text2)">Tovar</th>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:center;font-weight:600;color:var(--text2);width:130px">Miqdor (dona)</th>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:var(--text2);width:120px">Narx</th>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:var(--text2);width:120px">Summa</th>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);width:36px"></th>
+    </tr></thead>
+    <tbody>${orderItems.map((item,idx)=>{
+      const lineSum=(item.qty||0)*(item.price||0);
+      total+=lineSum;
+      const blocks=item.blockSize?Math.floor((item.qty||0)/item.blockSize):0;
+      return`<tr>
+        <td style="padding:7px 10px;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600">${item.name}</div>
+          ${item.blockSize?`<div style="font-size:10px;color:var(--text3)">${item.qty} dona = ${blocks} blok${item.qty%item.blockSize?' + '+(item.qty%item.blockSize)+' dona':''}</div>`:''}
+        </td>
+        <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+            <button onclick="changeOrderItemQty(${idx},-1)" style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:white;font-size:14px;display:flex;align-items:center;justify-content:center">−</button>
+            <input type="number" min="1" value="${item.qty}" onchange="setOrderItemQty(${idx},this.value)" style="width:52px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:3px;font-size:12px;font-weight:600">
+            <button onclick="changeOrderItemQty(${idx},1)" style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:white;font-size:14px;display:flex;align-items:center;justify-content:center">+</button>
+          </div>
+        </td>
+        <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">
+          <input type="number" min="0" value="${item.price}" onchange="setOrderItemPrice(${idx},this.value)" style="width:100px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;font-weight:600">
+        </td>
+        <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--primary)">${fmtNum(lineSum)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid var(--border)"><button onclick="removeOrderItem(${idx})" style="background:var(--red-light);color:var(--red);border:none;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:13px">✕</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+  document.getElementById('o-totalSum').textContent=fmtNum(total)+' so\'m';
+}
+
+window.changeOrderItemQty=function(idx,delta){
+  orderItems[idx].qty=Math.max(1,(orderItems[idx].qty||1)+delta);
+  renderOrderItems();renderOrderProductList();
+};
+window.setOrderItemQty=function(idx,val){
+  orderItems[idx].qty=Math.max(1,parseInt(val)||1);
+  renderOrderItems();renderOrderProductList();
+};
+window.setOrderItemPrice=function(idx,val){
+  orderItems[idx].price=parseFloat(val)||0;
+  renderOrderItems();
+};
+window.removeOrderItem=function(idx){
+  orderItems.splice(idx,1);
+  renderOrderItems();renderOrderProductList();
+};
+
+document.getElementById('o-productSearch')?.addEventListener('input',renderOrderProductList);
+document.getElementById('o-productCatFilter')?.addEventListener('change',renderOrderProductList);
+
+document.getElementById('saveOrderBtn')?.addEventListener('click',async()=>{
+  const clientId=document.getElementById('o-client').value;
+  const warehouseId=document.getElementById('o-warehouse').value;
+  if(!clientId)return toast('Mijozni tanlang','error');
+  if(!warehouseId)return toast('Omborni tanlang','error');
+  if(!orderItems.length)return toast('Kamida 1 ta tovar qo&#39;shing','error');
+
+  const client=clients.find(c=>c.id===clientId);
+  const total=orderItems.reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
+
+  const data={
+    clientId,
+    clientName:client?.name||'',
+    agentId:currentUser.uid,
+    agentName:currentUserName,
+    warehouseId,
+    paymentTypeId:document.getElementById('o-paymentType').value,
+    note:document.getElementById('o-note').value.trim(),
+    deliveryDate:document.getElementById('o-date').value,
+    items:orderItems.map(i=>({...i})),
+    totalSum:total,
+    status:'new',
+    updatedAt:Date.now()
+  };
+
+  try{
+    if(editingOrderId){
+      await updateDoc(doc(db,'orders',editingOrderId),{...data,updatedAt:Date.now()});
+      const idx=orders.findIndex(o=>o.id===editingOrderId);
+      Object.assign(orders[idx],data);
+      toast('✅ Buyurtma yangilandi!','success');
+    }else{
+      const num='B-'+(orders.length+1).toString().padStart(4,'0');
+      data.orderNum=num;data.createdAt=Date.now();
+      const ref=await addDoc(collection(db,'orders'),data);
+      orders.unshift({id:ref.id,...data});
+      const today=new Date().toDateString();
+      document.getElementById('ds-orders').textContent=orders.filter(o=>new Date(o.createdAt).toDateString()===today).length;
+      toast('✅ Buyurtma yaratildi! '+num,'success');
+    }
+    closeModal('orderModal');
+    renderOrders();
+  }catch(e){toast('❌ '+e.message,'error');}
+});
+
+function openOrderDetail(orderId){
+  const o=orders.find(x=>x.id===orderId);if(!o)return;
+  const client=clients.find(c=>c.id===o.clientId);
+  const agent=users.find(u=>u.id===o.agentId);
+  const warehouse=warehouses.find(w=>w.id===o.warehouseId);
+  const payType=paymentTypes.find(p=>p.id===o.paymentTypeId);
+  const st=orderStatusMap[o.status]||{label:o.status,cls:'badge-gray'};
+
+  document.getElementById('orderDetailTitle').textContent='Buyurtma '+o.orderNum;
+
+  const itemsHtml=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+    <thead><tr>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:left">Tovar</th>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:center">Miqdor</th>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:right">Narx</th>
+      <th style="padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:right">Summa</th>
+    </tr></thead>
+    <tbody>${(o.items||[]).map(item=>`<tr>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:600">${item.name}</div>
+        ${item.blockSize&&item.qty?`<div style="font-size:10px;color:var(--text3)">${item.qty} dona = ${Math.floor(item.qty/item.blockSize)} blok${item.qty%item.blockSize?' + '+(item.qty%item.blockSize)+' dona':''}</div>`:''}
+      </td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center;font-weight:600">${item.qty}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtNum(item.price)} so'm</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--primary)">${fmtNum((item.qty||0)*(item.price||0))} so'm</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+
+  document.getElementById('orderDetailBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div><span class="detail-label">Mijoz</span><div style="font-weight:600;margin-top:2px">${client?.name||'—'} <span style="font-size:11px;color:var(--text3)">${client?.clientId||''}</span></div></div>
+      <div><span class="detail-label">Status</span><div style="margin-top:2px"><span class="badge ${st.cls}">${st.label}</span></div></div>
+      <div><span class="detail-label">Vakil</span><div style="font-weight:500;margin-top:2px">${agent?.name||'—'}</div></div>
+      <div><span class="detail-label">Ombor</span><div style="font-weight:500;margin-top:2px">${warehouse?.name||'—'}</div></div>
+      <div><span class="detail-label">To'lov turi</span><div style="font-weight:500;margin-top:2px">${payType?.name||'—'}</div></div>
+      <div><span class="detail-label">Sana</span><div style="font-weight:500;margin-top:2px">${fmtDate(o.createdAt)}</div></div>
+      ${o.note?`<div style="grid-column:span 2"><span class="detail-label">Izoh</span><div style="margin-top:2px">${o.note}</div></div>`:''}
+    </div>
+    ${itemsHtml}
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:2px solid var(--border)">
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--text2)">Jami summa</div>
+        <div style="font-size:20px;font-weight:700;color:var(--primary)">${fmtNum(o.totalSum||0)} so'm</div>
+      </div>
+    </div>`;
+
+  // Footer — status buttons
+  const canEdit=o.status==='new'&&(currentRole==='admin'||o.agentId===currentUser.uid);
+  const nextStatuses={
+    new:[{s:'packed',l:'📋 Terilgan deb belgilash'},{s:'cancelled',l:'❌ Bekor qilish'}],
+    packed:[{s:'loaded',l:'🚚 Yuklangan deb belgilash'}],
+    loaded:[{s:'delivered',l:'✅ Yetkazilgan deb belgilash'}],
+    delivered:[{s:'return',l:'🔄 Vozvrat'}],
+  };
+  const nexts=currentRole==='admin'?(nextStatuses[o.status]||[]):[];
+  document.getElementById('orderDetailFooter').innerHTML=`
+    ${canEdit?`<button class="btn btn-outline" onclick="openOrderModal('${o.id}');closeModal('orderDetailModal')">✏️ Tahrirlash</button>`:''}
+    <div style="flex:1"></div>
+    ${nexts.map(n=>`<button class="btn btn-primary btn-sm" onclick="changeOrderStatus('${o.id}','${n.s}')">${n.l}</button>`).join('')}
+    <button class="btn btn-outline" onclick="closeModal('orderDetailModal')">Yopish</button>`;
+
+  document.getElementById('orderDetailModal').classList.add('open');
+}
+
+async function changeOrderStatus(orderId,newStatus){
+  try{
+    await updateDoc(doc(db,'orders',orderId),{status:newStatus,updatedAt:Date.now()});
+    const o=orders.find(x=>x.id===orderId);
+    if(o)o.status=newStatus;
+    closeModal('orderDetailModal');
+    renderOrders();
+    toast('✅ Status yangilandi!','success');
+  }catch(e){toast('❌ '+e.message,'error');}
+}
+window.changeOrderStatus=changeOrderStatus;
+
+document.getElementById('addOrderBtn')?.addEventListener('click',()=>openOrderModal());
+document.getElementById('addOrderBtnTop')?.addEventListener('click',()=>openOrderModal());
+window.openOrderModal=openOrderModal;
 
 // SEARCH & FILTER
 document.getElementById('clientSearch').addEventListener('input',()=>{clientPage=1;renderClients();});
@@ -1841,6 +2351,10 @@ function showPage(name){
   if(name==='products'){
     populateProductFilters();
     document.getElementById('addProductBtnTop')?.addEventListener('click',()=>openProductModal());
+  }
+  if(name==='orders'){
+    populateOrderFilters();
+    document.getElementById('addOrderBtnTop')?.addEventListener('click',()=>openOrderModal());
   }
 }
 window.showPage=showPage;
